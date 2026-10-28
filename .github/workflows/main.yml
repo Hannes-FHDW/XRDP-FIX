@@ -107,12 +107,24 @@ jobs:
           cd /tmp/xrdp-artifacts
           tar -czf "$GITHUB_WORKSPACE/xrdp-fuse-ubuntu-26.04-arm64.tar.gz" *.deb
 
-      - name: Upload compressed packages
-        uses: actions/upload-artifact@v7
+      - name: Package build output
+        shell: bash
+        run: |
+          set -eux
+          cd /tmp/xrdp-artifacts
+          tar -czf "$GITHUB_WORKSPACE/xrdp-fuse-ubuntu-26.04-arm64.tar.gz" *.deb
+          sha256sum "$GITHUB_WORKSPACE/xrdp-fuse-ubuntu-26.04-arm64.tar.gz" \
+            > "$GITHUB_WORKSPACE/SHA256SUMS"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: xrdp-fuse-ubuntu-26.04-arm64
-          path: xrdp-fuse-ubuntu-26.04-arm64.tar.gz
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 3
+          tag_name: xrdp-fuse-${{ github.run_number }}
+          name: XRDP FUSE fix build ${{ github.run_number }}
+          prerelease: true
+          files: |
+            xrdp-fuse-ubuntu-26.04-arm64.tar.gz
+            SHA256SUMS
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
