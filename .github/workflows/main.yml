@@ -76,10 +76,17 @@ jobs:
             --distribution resolute \
             'Enable FUSE for XRDP drive and clipboard file redirection.'
 
+
       - name: Build binary packages
         shell: bash
         run: |
           set -eux
+          export DEBEMAIL="build@example.invalid"
+          export DEBFULLNAME="XRDP FUSE Builder"
+
+          # Install the development dependency added by our patch.
+          apt-get install -y libfuse-dev
+
           cd "$XRDP_SRC"
 
           dpkg-buildpackage -b -uc -us
@@ -91,6 +98,7 @@ jobs:
 
           test -n "$(find /tmp/xrdp-artifacts \
             -maxdepth 1 -name '*.deb' -print -quit)"
+
 
 
       - name: Compress ARM64 packages
