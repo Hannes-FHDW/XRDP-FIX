@@ -10,7 +10,7 @@ permissions:
 jobs:
   build:
     # Native ARM64 runner; build for your server's architecture.
-    runs-on: ubuntu-24.04-arm
+    runs-on: ubuntu-26.04-arm
 
     # Use the Ubuntu release your server runs.
     container:
