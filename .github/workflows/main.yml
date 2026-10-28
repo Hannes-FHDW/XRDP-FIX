@@ -1,0 +1,110 @@
+
+name: Build XRDP with FUSE enabled
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    # Native ARM64 runner; build for your server's architecture.
+    runs-on: ubuntu-24.04-arm
+
+    # Use the Ubuntu release your server runs.
+    container:
+      image: ubuntu:26.04
+
+    steps:
+      - name: Install build tools
+        shell: bash
+        run: |
+          set -eux
+          export DEBIAN_FRONTEND=noninteractive
+
+          cat > /etc/apt/sources.list.d/ubuntu.sources <<'EOF'
+          Types: deb deb-src
+          URIs: http://archive.ubuntu.com/ubuntu
+          Suites: resolute resolute-updates resolute-security
+          Components: main universe
+          Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+          EOF
+
+          apt-get update
+          apt-get install -y \
+            build-essential \
+            devscripts \
+            dpkg-dev \
+            equivs \
+            ca-certificates
+
+      - name: Download Ubuntu XRDP source
+        shell: bash
+        run: |
+          set -eux
+          mkdir -p /tmp/xrdp-build
+          cd /tmp/xrdp-build
+
+          apt-get build-dep -y xrdp=0.10.1-4.1ubuntu0.1
+          apt-get source xrdp=0.10.1-4.1ubuntu0.1
+
+          SRC="$(find . -maxdepth 1 -type d -name 'xrdp-*' | head -n 1)"
+          test -n "$SRC"
+          echo "XRDP_SRC=/tmp/xrdp-build/$SRC" >> "$GITHUB_ENV"
+
+      - name: Apply FUSE packaging fix
+        shell: bash
+        run: |
+          set -eux
+          cd "$XRDP_SRC"
+
+          # Remove the option that disables FUSE on every architecture.
+          sed -i \
+            's/^[[:space:]]*CONFIGURE_ARGS+=[[:space:]]*--disable-fuse/#CONFIGURE_ARGS+= --disable-fuse/' \
+            debian/rules
+
+          # Add the required FUSE development library.
+          grep -q '^[[:space:]]*libfuse-dev,' debian/control || \
+            sed -i '/^[[:space:]]*check,$/a\ libfuse-dev,' debian/control
+
+          grep -n 'disable-fuse\|libfuse-dev' \
+            debian/rules debian/control
+
+          # Give the rebuilt package a distinct version.
+          dch --local '+fuse1' \
+            --distribution resolute \
+            'Enable FUSE for XRDP drive and clipboard file redirection.'
+
+      - name: Build binary packages
+        shell: bash
+        run: |
+          set -eux
+          cd "$XRDP_SRC"
+
+          dpkg-buildpackage -b -uc -us
+
+          mkdir -p /tmp/xrdp-artifacts
+          find /tmp/xrdp-build -maxdepth 1 -type f \
+            -name '*.deb' \
+            -exec cp -v {} /tmp/xrdp-artifacts/ \;
+
+          test -n "$(find /tmp/xrdp-artifacts \
+            -maxdepth 1 -name '*.deb' -print -quit)"
+
+
+      - name: Compress ARM64 packages
+        shell: bash
+        run: |
+          cd /tmp/xrdp-artifacts
+          tar -czf "$GITHUB_WORKSPACE/xrdp-fuse-ubuntu-26.04-arm64.tar.gz" *.deb
+
+      - name: Upload compressed packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: xrdp-fuse-ubuntu-26.04-arm64
+          path: xrdp-fuse-ubuntu-26.04-arm64.tar.gz
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 3
+
