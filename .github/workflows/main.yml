@@ -3,9 +3,10 @@ name: Build XRDP with FUSE enabled
 
 on:
   workflow_dispatch:
+  push:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
