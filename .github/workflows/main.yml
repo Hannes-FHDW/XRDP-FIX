@@ -108,7 +108,7 @@ jobs:
           tar -czf "$GITHUB_WORKSPACE/xrdp-fuse-ubuntu-26.04-arm64.tar.gz" *.deb
 
       - name: Upload compressed packages
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: xrdp-fuse-ubuntu-26.04-arm64
           path: xrdp-fuse-ubuntu-26.04-arm64.tar.gz
